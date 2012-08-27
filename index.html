@@ -1,0 +1,205 @@
+<script type='text/javascript' src='./hyve.js'></script>
+<script type='text/javascript' src='./jquery-1.3.2.min.js'></script>
+<script type="text/javascript" src="ZeroClipboard.min.js"></script>
+
+<link href='http://fonts.googleapis.com/css?family=Peralta' rel='stylesheet' type='text/css'>
+<link href='http://fonts.googleapis.com/css?family=Headland+One' rel='stylesheet' type='text/css'>
+
+
+<style type='text/css'>
+body, h1, p, footer {
+	font-family: 'Headland One';
+}
+
+.block {
+	text-align: center;
+	background: #c0c0c0;
+	border: #a0a0a0 solid 1px;
+	margin: 20px;
+}
+
+.block:before {
+	content: '';
+	display: inline-block;
+	height: 100%; 
+	vertical-align: middle;
+	margin-right: -0.25em; /* Adjusts for spacing */
+}
+
+.centered {
+	display: inline-block;
+	vertical-align: middle;
+	width: 400px;
+	padding: 10px 15px;
+	border: #a0a0a0 solid 1px;
+	background: #f5f5f5;
+
+	cursor: hand;
+}
+.centered:hover {
+	background-color: #EEE;
+}
+.centered p {
+	height: 65px;
+	line-height: 23px;
+}
+
+h1,p {
+	text-align:center;
+}
+
+p.description {
+	text-align:center;
+	color: gray;
+	font-size: 10px;
+}
+
+footer {
+	text-align:center;
+	font-size: 12px;
+	margin-top: 100px;
+}
+
+</style>
+
+<body> 
+	<h1>Hyveku!</h1>
+	<p>A social media stream based haiku generator, for love!</p>
+	<div class='block' style="height: 200px;">
+		<div class='centered'>
+			<p class='haiku'>Loading social media phrases based on the word 'love'...</p>
+		</div>
+	</div>
+	<p><a href='#' class='copy' style='display:none'>(copy to clipboard)</a></p>
+	<p class='description'>
+		I made this demo for the best girl in the world. The whole internet loves you! :)
+		<br/>
+		(click the box to generate a fresh haiku)
+	</p>
+	<footer>built with <a href='http://github.com/tawlk/hyve'>hyve</a>, a social-media streaming javascript library</footer>
+</body>
+
+<script type='text/javascript'>
+
+var brain = {};
+var words = [];
+var haiku='';
+
+$(document).ready(function() {
+
+var clip = new ZeroClipboard.Client();
+
+$('.copy').click(function(e) {
+	e.preventDefault();
+	clip.setText($('.haiku').html().replace(/<.?p>/g,'').replace(/<br.?>/g,'\n'));
+});
+
+function syllable_count(word) {
+	if(word == '') return 0;
+	if(word.length <= 3) return 1;
+	word = word.replace(/(?:[^laeiouy]es|ed|[^laeiouy]e)$/, '');
+	word = word.replace(/^y/, '');
+	var matches = word.match(/[aeiouy]{1,2}/g);
+	return matches ? matches.length : 0
+}
+
+
+function learn(sentence) {
+	var words = sentence.toLowerCase().replace(/[^a-z ]/g,'').replace(/  */g,' ').split(' ');
+	var prev = words.shift();
+	for (var i = 0; i < words.length; i++) {
+		if (words[i] == '') continue;
+		learn_chain(prev, words[i])
+		prev = words[i];
+	}
+	learn_chain(prev, '')
+}
+
+// populate brain with { s: syllables, w: 'word' } objects
+function learn_chain(prev, word) {
+	var item = { s: syllable_count(word), w: word  };
+	if(brain[prev]) {
+		brain[prev].push(item);
+	 } else {
+		brain[prev] = [ item ];
+		words.push(prev);
+	 }
+}
+
+function chain(word, syllables, c) {
+	if (typeof c == 'undefined') c=[];
+	
+	var items = brain[word]
+	if (!items) {
+		return false;
+	}
+	var item = items[Math.floor(Math.random()*items.length)]
+
+	c.push(item.w);
+	if (item.s < syllables) {
+		return chain(item.w, syllables - item.s, c)
+	} else if (item.s == syllables) {
+		return c
+	} else {
+		return false
+	}
+}
+
+hyve.search.stream('love kiss', function(d) {
+	learn(d.text.replace(/\n/g, " "));
+})
+
+function random(arr) {
+	return arr[Math.floor(Math.random()*arr.length)]
+}
+
+function not_stopword(word) {
+	var stopwords = ['a','me','and','i','u','or','is','on','but','in','the','if','from','with'];
+	for(var i=0;i<stopwords.length;i++) if(stopwords[i]==word) return false;
+	return true;
+}
+
+function get_stanza(l) {
+	var c;
+	for(var i=0; i<50; i++) {
+		c = chain(random(words), l, []);
+		if(c && not_stopword(c[c.length-1])) {
+			var s = c;
+			s[0] = s[0][0].toUpperCase() + s[0].slice(1);
+			return s;
+		}
+	}
+	return false;
+}
+
+function get_haiku() {
+	var haiku = "<p>"
+	var stanza
+	stanza = get_stanza(5)
+	if(!stanza) stanza=['']
+	haiku += stanza.join(' ') + '<br/>'
+	
+	stanza = get_stanza(7)
+	if(!stanza) stanza=['']
+	haiku += stanza.join(' ') + '<br/>'
+	
+	stanza = get_stanza(5)
+	if(!stanza) stanza=['']
+	haiku += stanza.join(' ') + '<br/>'
+	
+	haiku += '</p><br/><br/>'
+	
+if(console)console.log(haiku)
+	$('body .block .centered p').html(haiku)
+}
+
+setTimeout(function() {
+	get_haiku();
+}, 5000);
+
+$('body .block .centered').click(function() { get_haiku(); })
+
+
+})
+
+</script>
